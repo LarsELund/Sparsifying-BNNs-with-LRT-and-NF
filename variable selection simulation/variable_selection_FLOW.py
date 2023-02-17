@@ -115,11 +115,11 @@ class BayesianLinear(nn.Module):
         self.z = 0
 
     def sample_z(self, batch_size=1):
-        q0_std = self.q0_log_var.exp().sqrt().repeat(batch_size, 1)
+        q0_std = self.q0_log_var.exp().sqrt()
         epsilon_z = torch.randn_like(q0_std)
         self.z = self.q0_mean + q0_std * epsilon_z
         zs, log_det_q = self.z_flow(self.z)
-        return zs[-1], log_det_q.squeeze()
+        return zs, log_det_q.squeeze()
 
         # forward path
 
@@ -130,7 +130,7 @@ class BayesianLinear(nn.Module):
         self.weight_sigma = torch.log1p(torch.exp(self.weight_rho))
         self.bias_sigma = torch.log1p(torch.exp(self.bias_rho))
         
-        z_k, _ = self.sample_z(input.size(0))
+        z_k, _ = self.sample_z()
         e_w = self.weight_mu * self.alpha_q * z_k
         var_w = self.alpha_q*(self.weight_sigma ** 2 + (1 - self.alpha_q) * (self.weight_mu * z_k) ** 2)
         e_b = torch.mm(input, e_w.T) + self.bias_mu
@@ -233,7 +233,7 @@ for i in range(0, k):
     torch.manual_seed(i)
     net = BayesianNetwork().to(DEVICE)
     optimizer = optim.Adam(net.parameters(),lr = 0.01)
-    scheduler = MultiStepLR(optimizer, milestones=[200], gamma=0.1)
+    scheduler = MultiStepLR(optimizer, milestones=[250], gamma=0.1)
     for epoch in range(epochs):
         
         print('epoch =', epoch)
