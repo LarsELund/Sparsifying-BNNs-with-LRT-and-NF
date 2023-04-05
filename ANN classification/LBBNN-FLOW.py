@@ -263,6 +263,6 @@ for i in range(0, 10):
     metrics.append(t / epochs)
     metrics_several_runs.append(metrics)
 
-np.savetxt('KMNIST_KL_loss_FLOW_MEDIAN' + '.txt', loss_several_runs, delimiter=',', fmt='%s')
-np.savetxt('KMNIST_KL_metrics_FLOW_MEDIAN' + '.txt', metrics_several_runs, delimiter=',', fmt='%s')
-np.savetxt('KMNIST_KL_nll_FLOW_MEDIAN' + '.txt', nll_several_runs, delimiter=',', fmt='%s')
+np.savetxt('KMNIST_KL_loss_FLOW' + '.txt', loss_several_runs, delimiter=',', fmt='%s')
+np.savetxt('KMNIST_KL_metrics_FLOW' + '.txt', metrics_several_runs, delimiter=',', fmt='%s')
+np.savetxt('KMNIST_KL_nll_FLOW' + '.txt', nll_several_runs, delimiter=',', fmt='%s')
