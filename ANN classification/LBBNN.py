@@ -16,7 +16,7 @@ from tqdm import tqdm, trange
 
 # define the summary writer
 # select the device
-DEVICE = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 LOADER_KWARGS = {'num_workers': 1, 'pin_memory': True} if torch.cuda.is_available() else {}
 
 if (torch.cuda.is_available()):
@@ -38,21 +38,20 @@ pepochs = 0
 
 # define the data loaders
 train_loader = torch.utils.data.DataLoader(
-    datasets.MNIST(
-        './mnist', train=True, download=True,
+    datasets.FashionMNIST(
+        './fmnist', train=True, download=True,
         transform=transforms.ToTensor()),
     batch_size=BATCH_SIZE, shuffle=True, **LOADER_KWARGS)
 test_loader = torch.utils.data.DataLoader(
-    datasets.MNIST(
-        './mnist', train=False, download=True,
+    datasets.FashionMNIST(
+        './fmnist', train=False, download=True,
         transform=transforms.ToTensor()),
     batch_size=TEST_BATCH_SIZE, shuffle=False, **LOADER_KWARGS)
 
-
-
 # for the OOD entropy
 mnist_loader = torch.utils.data.DataLoader(
-    datasets.FashionMNIST('./fmnist', train=False, download=True, transform=transforms.ToTensor()), batch_size=TEST_BATCH_SIZE, shuffle=False)
+    datasets.FashionMNIST('./fmnist', train=False, download=True, transform=transforms.ToTensor()),
+    batch_size=TEST_BATCH_SIZE, shuffle=False)
 TRAIN_SIZE = len(train_loader.dataset)
 TEST_SIZE = len(test_loader.dataset)
 NUM_BATCHES = len(train_loader)
@@ -60,6 +59,7 @@ NUM_TEST_BATCHES = len(test_loader)
 
 assert (TRAIN_SIZE % BATCH_SIZE) == 0
 assert (TEST_SIZE % TEST_BATCH_SIZE) == 0
+
 
 # define Gaussian distribution
 class Gaussian(object):
@@ -134,11 +134,11 @@ class GaussGamma(object):
             gamma1 = torch.round(gamma.detach())
             output = (gamma1 * (self.a * torch.log(self.b) + (self.a - 0.5) * tau - self.b * tau - torch.lgamma(
                 self.a) - 0.5 * torch.log(torch.tensor(2 * np.pi))) - tau * torch.pow(input, 2) + (
-                                  1 - gamma1) + 1e-8).sum()
+                              1 - gamma1) + 1e-8).sum()
         else:
             output = (gamma * (self.a * torch.log(self.b) + (self.a - 0.5) * tau - self.b * tau - torch.lgamma(
                 self.a) - 0.5 * torch.log(torch.tensor(2 * np.pi))) - tau * torch.pow(input, 2) + (
-                                  1 - gamma) + 1e-8).sum()
+                              1 - gamma) + 1e-8).sum()
         return output
 
 
@@ -168,6 +168,7 @@ class BetaBinomial(object):
             probs=torch.distributions.Beta(self.pa, self.pb).rsample().to(DEVICE), temperature=0.001).rsample().to(
             DEVICE)
         return gamma
+
 
 # define the linear layer for the BNN
 class BayesianLinear(nn.Module):
@@ -216,32 +217,29 @@ class BayesianLinear(nn.Module):
         self.lagrangian = 0
 
     # forward path
-    def forward(self, input, cgamma, sample=False, medimean=False, calculate_log_probs=False):
+    def forward(self, input, cgamma, sample=False, calculate_log_probs=False):
         # if sampling
         if self.training or sample:
             self.gammas = cgamma
             ws = self.weight.rsample()
             weight = cgamma * ws
             bias = self.bias.rsample()
-        # if mean of the given model (e.g.) median probability model
-        elif medimean:
-            weight = cgamma * self.weight.mu
-            bias = self.bias.mu
-        # if joint mean in the space of models and parameters (for a given alpha vector)
-        else:
-            weight = self.alpha * self.weight.mu
-            bias = self.bias.mu
+
+        else:  # median prob
+            w = self.weight.rsample()
+            bias = self.bias.rsample()
+            weight = w * cgamma
         # calculate the kl
         if self.training or calculate_log_probs:
 
             self.alpha = 1 / (1 + torch.exp(-self.lambdal))
             self.log_prior = self.weight_prior.log_prob(weight, cgamma) \
-                           + self.bias_prior.log_prob(bias,torch.ones_like(bias)) \
-                           + self.gamma_prior.log_prob(cgamma, pa=self.pa, pb=self.pb)
-            self.log_variational_posterior = self.weight.full_log_prob(input=weight,gamma=cgamma) \
-                           + self.gamma.log_prob(cgamma) + self.bias.log_prob(bias)
+                             + self.bias_prior.log_prob(bias, torch.ones_like(bias)) \
+                             + self.gamma_prior.log_prob(cgamma, pa=self.pa, pb=self.pb)
+            self.log_variational_posterior = self.weight.full_log_prob(input=weight, gamma=cgamma) \
+                                             + self.gamma.log_prob(cgamma) + self.bias.log_prob(bias)
         else:
-            self.log_prior, self.log_variational_posterior, = 0,0
+            self.log_prior, self.log_variational_posterior, = 0, 0
 
         return F.linear(input, weight, bias)
 
@@ -255,11 +253,11 @@ class BayesianNetwork(nn.Module):
         self.l2 = BayesianLinear(400, 600, 1)
         self.l3 = BayesianLinear(600, 10, 1)
 
-    def forward(self, x, g1, g2, g3, sample=False, medimean=False):
+    def forward(self, x, g1, g2, g3, sample=False):
         x = x.view(-1, 28 * 28)
-        x = F.relu(self.l1.forward(x, g1, sample, medimean))
-        x = F.relu(self.l2.forward(x, g2, sample, medimean))
-        x = F.log_softmax((self.l3.forward(x, g3, sample, medimean)), dim=1)
+        x = F.relu(self.l1.forward(x, g1, sample))
+        x = F.relu(self.l2.forward(x, g2, sample))
+        x = F.log_softmax((self.l3.forward(x, g3, sample)), dim=1)
         return x
 
     def log_prior(self):
@@ -293,7 +291,7 @@ class BayesianNetwork(nn.Module):
             cgamma3 = self.l3.gamma.rsample().to(DEVICE)
 
             # get the results
-            outputs[i] = self.forward(input, g1=cgamma1, g2=cgamma2, g3=cgamma3, sample=True, medimean=False)
+            outputs[i] = self.forward(input, g1=cgamma1, g2=cgamma2, g3=cgamma3, sample=True)
             log_priors[i] = self.log_prior()
             log_variational_posteriors[i] = self.log_variational_posterior()
             negative_log_likelihoods[i] = F.nll_loss(outputs[i], target, reduction='sum')
@@ -310,12 +308,10 @@ class BayesianNetwork(nn.Module):
         return loss, log_prior, log_variational_posterior, negative_log_likelihood
 
 
-
-
 # Stochastic Variational Inference iteration
 def train(net, optimizer, epoch, i):
     net.train()
-    print('epoch',epoch)
+    print('epoch', epoch)
     for batch_idx, (data, target) in enumerate(tqdm(train_loader)):
         data, target = data.to(DEVICE), target.to(DEVICE)
         net.zero_grad()
@@ -327,34 +323,25 @@ def train(net, optimizer, epoch, i):
             net.l3.weight_mu.grad = net.l3.weight_mu.grad * net.l3.gammas.data
         optimizer.step()
 
-    print('loss',loss.item())
-    print('log_prior',log_prior.item())
-    print('log_variational_posterior',log_variational_posterior.item())
-    print('nll',negative_log_likelihood.item())
-    return  negative_log_likelihood.item(),loss.item()
+    print('loss', loss.item())
+    print('log_prior', log_prior.item())
+    print('log_variational_posterior', log_variational_posterior.item())
+    print('nll', negative_log_likelihood.item())
+    return negative_log_likelihood.item(), loss.item()
+
 
 def test_ensemble(net):
     net.eval()
-    correct1 = 0
-    correct2 = 0
-    correct3 = 0
-    correct4 = 0
-    cases3 = 0
-    cases4 = 0
     ctr = 0
-
-    spars = np.zeros(TEST_SAMPLES)
-    gt1 = np.zeros((400, 784))
-    gt2 = np.zeros((600, 400))
-    gt3 = np.zeros((10, 600))
     metr = []
     density = np.zeros(TEST_SAMPLES)
     ensemble = []
-    posterior_mean = []
+    median = []
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(DEVICE), target.to(DEVICE)
             outputs = torch.zeros(TEST_SAMPLES, TEST_BATCH_SIZE, CLASSES).to(DEVICE)
+            out2 = torch.zeros_like(outputs)
             for i in range(TEST_SAMPLES):
                 # get the inclusion probabilities for all layers
                 net.l1.alpha = 1 / (1 + torch.exp(-net.l1.lambdal))
@@ -364,26 +351,13 @@ def test_ensemble(net):
                 net.l3.alpha = 1 / (1 + torch.exp(-net.l3.lambdal))
                 net.l3.gamma.alpha = net.l3.alpha
 
-                # sample the model
-                g1 = net.l1.gamma.rsample().to(DEVICE)
-                g2 = net.l2.gamma.rsample().to(DEVICE)
-                g3 = net.l3.gamma.rsample().to(DEVICE)
-                ctr += 1
-
-                spars[i] = spars[i] + ((torch.sum(g1 > 0.5).cpu().detach().numpy() + torch.sum(
-                    g2 > 0.5).cpu().detach().numpy() + torch.sum(g3 > 0.5).cpu().detach().numpy()) / (
-                                                   10 * 600 + 400 * 600 + 400 * 784))
-                gt1 = gt1 + (g1 > 0.5).cpu().numpy()
-                gt2 = gt2 + (g2 > 0.5).cpu().numpy()
-                gt3 = gt3 + (g3 > 0.5).cpu().numpy()
-                outputs[i] = net.forward(data, sample=True, medimean=False, g1=net.l1.gamma.rsample(),
+                outputs[i] = net.forward(data, sample=True, g1=net.l1.gamma.rsample(),
                                          g2=net.l2.gamma.rsample(), g3=net.l3.gamma.rsample())
-                g5 = net.l1.gamma.rsample().to(DEVICE)
-                g6 = net.l2.gamma.rsample().to(DEVICE)
-                g7 = net.l3.gamma.rsample().to(DEVICE)
-                gamms = torch.cat((g5.flatten(), g6.flatten(), g7.flatten()))
-                density[i] = gamms.mean()
 
+                out2[i] = net.forward(data, sample=False,
+                                      g1=(net.l1.alpha.data > 0.5).type(torch.cuda.FloatTensor).to(DEVICE),
+                                      g2=(net.l2.alpha.data > 0.5).type(torch.cuda.FloatTensor).to(DEVICE),
+                                      g3=(net.l3.alpha.data > 0.5).type(torch.cuda.FloatTensor).to(DEVICE))
 
                 if (i == 0):
                     mydata_means = sigmoid(outputs[i].detach().cpu().numpy())
@@ -397,33 +371,32 @@ def test_ensemble(net):
                     mydata_means = mydata_means + tmp
 
             mydata_means /= TEST_SAMPLES
-            np.savetxt('mnist_means_base' + '.txt', mydata_means, delimiter=',')
+            # np.savetxt('mnist_means_base' + '.txt', mydata_means, delimiter=',')
             d = data.reshape(1000, 28 * 28).cpu().numpy()
-            np.savetxt('mnist_data_base' + '.txt', d, delimiter=',')
-
-            mean_out = net(data, sample=False, medimean=False, g1=net.l1.gamma.rsample(),
-                           g2=net.l2.gamma.rsample(), g3=net.l3.gamma.rsample()) #posterior mean
+            # np.savetxt('mnist_data_base' + '.txt', d, delimiter=',')
 
             output1 = outputs.mean(0)
+            out2 = out2.mean(0)
             pred1 = output1.max(1, keepdim=True)[1]
-            pr = mean_out.max(1, keepdim=True)[1]
-            p = pred1.squeeze().cpu().numpy()
-            a = pr.eq(target.view_as(pred1)).sum(dim=1).squeeze().cpu().numpy()
+            pred2 = out2.max(1, keepdim=True)[1]
+            a = pred2.eq(target.view_as(pred2)).sum().item()
             b = pred1.eq(target.view_as(pred1)).sum().item()
-            posterior_mean.append(a.sum())
+            median.append(a)
             ensemble.append(b)
-            np.savetxt('mnist_predictions_base' + '.txt', p, delimiter=',')
-            np.savetxt('mnist_truth_base' + '.txt', target.cpu().numpy(), delimiter=',')
+    #     np.savetxt('mnist_predictions_base' + '.txt', p, delimiter=',')
+    #     np.savetxt('mnist_truth_base' + '.txt', target.cpu().numpy(), delimiter=',')
 
-    ps = ((np.sum(gt1 > 0) + np.sum(gt2 > 0) + np.sum(gt3 > 0)) / (10 * 600 + 400 * 600 + 400 * 784)) / 10
-    print(spars / ctr)
-    print(ps)
-    metr.append(np.sum(posterior_mean) / TEST_SIZE)
+    metr.append(np.sum(median) / TEST_SIZE)
     metr.append(np.sum(ensemble) / TEST_SIZE)
-    print(np.mean(density), 'density')
-    metr.append(np.mean(density))
-    print(np.sum(posterior_mean) / TEST_SIZE, 'posterior mean')
+
+    g1 = ((net.l1.alpha.detach().cpu().numpy() > 0.5) * 1.)
+    g2 = ((net.l2.alpha.detach().cpu().numpy() > 0.5) * 1.)
+    g3 = ((net.l3.alpha.detach().cpu().numpy() > 0.5) * 1.)
+    gs = np.concatenate((g1.flatten(), g2.flatten(), g3.flatten()))
+    print(np.sum(median) / TEST_SIZE, 'median')
     print(np.sum(ensemble) / TEST_SIZE, 'ensemble')
+    metr.append(np.mean(gs))
+    print(np.mean(gs), 'sparsity')
     return metr
 
 
@@ -432,13 +405,15 @@ def cdf(x, plot=True, *args, **kwargs):
     y = np.arange(len(x)) / len(x)
     return plt.plot(x, y, *args, **kwargs) if plot else (x, y)
 
+
 from scipy.special import expit
+
 
 def sigmoid(x):
     return expit(x)
 
 
-def outofsample(net,medimod = False):
+def outofsample(net, medimod=False):
     net.eval()
     correct = 0
     corrects = np.zeros(TEST_SAMPLES + 2, dtype=int)
@@ -489,7 +464,7 @@ def outofsample(net,medimod = False):
             pred = output.max(1, keepdim=True)[1]  # index of max log-probability
             corrects += preds.eq(target.view_as(pred)).sum(dim=1).squeeze().cpu().numpy()
             correct += pred.eq(target.view_as(pred)).sum().item()
-    #cdf(entropies.flatten())
+    # cdf(entropies.flatten())
     return entropies.flatten()
 
 
@@ -497,15 +472,13 @@ print("Classes loaded")
 
 import time
 
-
 nll_several_runs = []
 loss_several_runs = []
 metrics_several_runs = []
 
-
 # make inference on 10 networks
-for i in range(0,10):
-    print('network',i)
+for i in range(0, 10):
+    print('network', i)
     torch.manual_seed(i)
     net = BayesianNetwork().to(DEVICE)
     optimizer = optim.Adam([
@@ -593,7 +566,7 @@ for i in range(0,10):
                 {'params': net.l2.lambdal, 'lr': 0.0001},
                 {'params': net.l3.lambdal, 'lr': 0.0001}
             ], lr=0.0001)
-        nll,loss = train(net, optimizer, epoch, i)
+        nll, loss = train(net, optimizer, epoch, i)
         all_nll.append(nll)
         all_loss.append(loss)
     nll_several_runs.append(all_nll)
@@ -619,18 +592,13 @@ for i in range(0,10):
 
     metrics = test_ensemble(net)
     metrics.append(t / epochs)
-    print(t/epochs , 'time')
+    print(t / epochs, 'time')
     metrics_several_runs.append(metrics)
-
-    os = (torch.sum(net.l1.alpha.data > 0.5).cpu().detach().numpy() + torch.sum(
-        net.l2.alpha.data > 0.5).cpu().detach().numpy() + torch.sum(net.l3.alpha.data > 0.5).cpu().detach().numpy()) / (
-                     10 * 600 + 400 * 600 + 400 * 784)
-    if i == 9: #compute the OOD entropy
+    if i == 9:  # compute the OOD entropy
         enr = outofsample(net)
-        np.savetxt('ENTROPY_MNIST_FMNIST' + '.txt', enr, delimiter=',')
+    # np.savetxt('ENTROPY_MNIST_FMNIST' + '.txt', enr, delimiter=',')
 
-np.savetxt('MNISTNOFLOWLOSSES' + '.txt', loss_several_runs, delimiter=',')
-np.savetxt('MNISTNOFLOWNLL' + '.txt', nll_several_runs, delimiter=',')
-np.savetxt('MNISTNOFLOWMETRICS' + '.txt', metrics_several_runs, delimiter=',')
+np.savetxt('FMNISTNOFLOWLOSSES' + '.txt', loss_several_runs, delimiter=',')
+np.savetxt('FMNISTNOFLOWNLL' + '.txt', nll_several_runs, delimiter=',')
+np.savetxt('FMNISTNOFLOWMETRICS' + '.txt', metrics_several_runs, delimiter=',')
 
-  
