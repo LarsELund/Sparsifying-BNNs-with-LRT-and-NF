@@ -81,7 +81,7 @@ class MADE(nn.Module):
         for h0, h1 in zip(hs, hs[1:]):
             self.net.extend([
                 MaskedLinear(h0, h1),
-                nn.LeakyReLU(0.1),
+                nn.LeakyReLU(0.001),
             ])
         self.net.pop()  # pop the last ReLU for the output layer
         self.net = nn.Sequential(*self.net)
@@ -131,7 +131,7 @@ class IAF(nn.Module):
     
     ### for the variable selection simulation it works best with smaller networks
 
-    def __init__(self, dim, h_sizes=[75,75]):
+    def __init__(self, dim, h_sizes=[100,100]):
         super().__init__()
         self.net = MADE(nin=dim, hidden_sizes=h_sizes, nout = 2 * dim)
        
