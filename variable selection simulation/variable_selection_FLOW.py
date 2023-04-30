@@ -87,7 +87,7 @@ class BayesianLinear(nn.Module):
         self.lambdal = nn.Parameter(torch.Tensor(out_features, in_features).uniform_(1.5, 2.5))
         
         # inclusion prior is Bernoulli(0.1)
-        self.alpha_prior = (self.mu_prior + 0.05).to(DEVICE)
+        self.alpha_prior = (self.mu_prior + 0.25).to(DEVICE)
     
         # bias mu and rho initialization
         self.bias_mu = nn.Parameter(torch.Tensor(out_features).uniform_(-0.01, 0.01))
@@ -101,11 +101,11 @@ class BayesianLinear(nn.Module):
         # initialization of the flow parameters
         # read MNF paper for more about what this means
         # https://arxiv.org/abs/1703.01961
-        self.q0_mean = nn.Parameter(0.1 * torch.randn(in_features))
-        self.q0_log_var = nn.Parameter(-9 + 0.1 * torch.randn(in_features))
-        self.r0_c = nn.Parameter(0.1 * torch.randn(in_features))
-        self.r0_b1 = nn.Parameter(0.1 * torch.randn(in_features))
-        self.r0_b2 = nn.Parameter(0.1 * torch.randn(in_features))
+        self.q0_mean = nn.Parameter(0.001 * torch.randn(in_features))
+        self.q0_log_var = nn.Parameter(-9 +0.001 * torch.randn(in_features))
+        self.r0_c = nn.Parameter(0.001 * torch.randn(in_features))
+        self.r0_b1 = nn.Parameter(0.001 * torch.randn(in_features))
+        self.r0_b2 = nn.Parameter(0.001 * torch.randn(in_features))
         
         #one flow for z and one for r(z|w,gamma)
         self.z_flow = PropagateFlow(Z_FLOW_TYPE, in_features, num_transforms)
@@ -114,7 +114,7 @@ class BayesianLinear(nn.Module):
         self.kl = 0
         self.z = 0
 
-    def sample_z(self, batch_size=1):
+    def sample_z(self):
         q0_std = self.q0_log_var.exp().sqrt()
         epsilon_z = torch.randn_like(q0_std)
         self.z = self.q0_mean + q0_std * epsilon_z
@@ -150,7 +150,8 @@ class BayesianLinear(nn.Module):
         act_mu = self.r0_c @ W_mean.T
         act_var = self.r0_c ** 2 @ W_var.T
         act_inner = act_mu + act_var.sqrt() * torch.randn_like(act_var)
-        act = torch.tanh(act_inner)
+        a = nn.Hardtanh()
+        act = a(act_inner)
         mean_r = self.r0_b1.outer(act).mean(-1)  # eq (9) from MNF paper
         log_var_r = self.r0_b2.outer(act).mean(-1)  # eq (10) from MNF paper
         z_b, log_det_r = self.r_flow(z2)
@@ -240,7 +241,12 @@ for i in range(0, k):
         nll, loss = train(net, optimizer)
         scheduler.step()
     predicted_alphas[i] = net.l1.alpha_q.data.detach().cpu().numpy().squeeze()
-    a = net.l1.alpha_q.data.detach().cpu().numpy().squeeze()
+    a = net.l1.alpha_q.data.detach().cpu().numpy().squeeze() 
+    aa = np.round(a,0)
+    tw = (true_weights != 0) * 1
+    print((aa == tw).mean())
+    
+    
     print(net.l1.alpha_q.data)
    
 
