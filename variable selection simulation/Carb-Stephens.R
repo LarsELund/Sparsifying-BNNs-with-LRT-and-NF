@@ -2,7 +2,7 @@ library(varbvs)
 X <- as.matrix(read.csv("~/Documents/Variable selection clean up code/sim3-X.csv", header=FALSE))
 Y <- as.matrix(read.csv("~/Documents/Variable selection clean up code/sim3-Y.csv", header=FALSE))
 X <- scale(X)
-q <- 0.5
+q <- 0.25
 logodds = log10(q / ( 1 - q))
 
 num_models <- 100
@@ -17,4 +17,4 @@ for (i in 1:num_models) {
 } 
 
 print(Sys.time() - start_time)
-write.table(predicted_alphas, file="alphas_Carb_05.txt", row.names=FALSE, col.names=FALSE)
+write.table(predicted_alphas, file="alphas_Carb_025.txt", row.names=FALSE, col.names=FALSE)
