@@ -54,7 +54,13 @@ assert (TRAIN_SIZE % BATCH_SIZE) == 0
 assert (TEST_SIZE % TEST_BATCH_SIZE) == 0
 
 
-class ANN(nn.Module):
+# define the linear layer for the BNN
+
+
+
+
+# deine the whole BNN
+class BayesianNetwork(nn.Module):
     def __init__(self):
         super().__init__()
         # set the architecture
@@ -69,6 +75,13 @@ class ANN(nn.Module):
         x = torch.sigmoid(self.l2(x))
 
         return x
+
+
+    
+
+
+        
+
 
 # Stochastic Variational Inference iteration
 def train(net,train_data, optimizer, batch_size = BATCH_SIZE):
@@ -86,7 +99,7 @@ def train(net,train_data, optimizer, batch_size = BATCH_SIZE):
         net.zero_grad()
         outputs = net(data)
         negative_log_likelihood = net.loss(outputs, target)
-        loss = negative_log_likelihood 
+        loss = negative_log_likelihood
         loss.backward()
         optimizer.step()
     print('loss', loss.item())
@@ -97,7 +110,7 @@ def train(net,train_data, optimizer, batch_size = BATCH_SIZE):
 def test_ensemble(net,test_data):
     net.eval()
     metr = []
-    acc = []
+    ensemble = []
     with torch.no_grad():
         old_batch = 0
         for batch in range(int(np.ceil(test_data.shape[0] / TEST_BATCH_SIZE))):
@@ -109,14 +122,20 @@ def test_ensemble(net,test_data):
 
             data = _x.to(DEVICE)
             target = _y.to(DEVICE)
-       
-            outputs = net(data)
-            pred = (outputs > 0.5) * 1
-            class_pred = pred.round().squeeze()
+
+        
+
+            output1 = net(data)
+
+            class_pred = output1.round().squeeze()
+         
+        
             a = ((class_pred == target) * 1).sum().item()
-            acc.append(a)
-    metr.append(np.sum(acc) / TEST_SIZE)
-    print(np.sum(acc) / TEST_SIZE, 'acc')
+         
+    
+            ensemble.append(a)
+    metr.append(np.sum(ensemble) / TEST_SIZE)
+    print(np.sum(ensemble) / TEST_SIZE, 'ensemble')
     return metr
 
 
@@ -137,8 +156,9 @@ skf = StratifiedKFold(n_splits=10,shuffle = True,random_state = 1)
 for i, (train_index, test_index) in enumerate(skf.split(X, y)):
     print('network', i)
     torch.manual_seed(i)
-    net = ANN().to(DEVICE)
-    optimizer = optim.Adam(net.parameters(),lr = 0.001)
+    net = BayesianNetwork().to(DEVICE)
+    optimizer = optim.Adam(net.parameters(),lr = lr)
+    
     all_nll = []
     all_loss = []
    
