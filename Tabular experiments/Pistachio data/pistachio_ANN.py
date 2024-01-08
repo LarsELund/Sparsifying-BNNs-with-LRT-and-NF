@@ -161,7 +161,7 @@ for i, (train_index, test_index) in enumerate(skf.split(X, y)):
     print('network', i)
     torch.manual_seed(i)
     net = BayesianNetwork().to(DEVICE)
-    optimizer = optim.Adam(net.parameters(),lr = 0.005)
+    optimizer = optim.Adam(net.parameters(),lr = lr,weight_decay=0.5)
 
     
     all_nll = []
