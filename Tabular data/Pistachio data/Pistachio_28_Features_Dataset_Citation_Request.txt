@@ -1,0 +1,63 @@
+Citation Request :
+
+1. OZKAN IA., KOKLU M. and SARACOGLU R. (2021). Classification of Pistachio Species Using Improved K-NN Classifier. Progress in Nutrition, Vol. 23, N. 2, pp. DOI:10.23751/pn.v23i2.9686.  (Open Access) https://www.mattioli1885journals.com/index.php/progressinnutrition/article/view/9686/9178
+
+2. SINGH D, TASPINAR YS, KURSUN R, CINAR I, KOKLU M, OZKAN IA, LEE H-N., (2022). Classification and Analysis of Pistachio Species with Pre-Trained Deep Learning Models, Electronics, 11 (7), 981. https://doi.org/10.3390/electronics11070981. (Open Access) 
+
+Article Download (PDF):
+1: https://www.mattioli1885journals.com/index.php/progressinnutrition/article/view/9686/9178
+2: https://doi.org/10.3390/electronics11070981
+
+DATASET: https://www.muratkoklu.com/datasets/
+
+ABSTRACT: In order to keep the economic value of pistachio nuts which have an important place in the agricultural economy, the efficiency of post-harvest industrial processes is very important. To provide this efficiency, new methods and technologies are needed for the separation and classification of pistachios. Different pistachio species address different markets, which increases the need for the classification of pistachio species. In this study, it is aimed to develop a classification model different from traditional separation methods, based on image processing and artificial intelligence which are capable to provide the required classification. A computer vision system has been developed to distinguish two different species of pistachios with different characteristics that address different market types. 2148 sample image for these two kinds of pistachios were taken with a high-resolution camera. The image processing techniques, segmentation and feature extraction were applied on the obtained images of the pistachio samples. A pistachio dataset that has sixteen attributes was created. An advanced classifier based on k-NN method, which is a simple and successful classifier, and principal component analysis was designed on the obtained dataset. In this study; a multi-level system including feature extraction, dimension reduction and dimension weighting stages has been proposed. Experimental results showed that the proposed approach achieved a classification success of 94.18%. The presented high-performance classification model provides an important need for the separation of pistachio species and increases the economic value of species. In addition, the developed model is important in terms of its application to similar studies. 
+
+Keywords: Classification, Image processing, k nearest neighbor classifier, Pistachio species
+
+
+morphological Features (12 Features)
+1. Area
+2. Perimeter
+3. Major_Axis
+4. Minor_Axis
+5. Eccentricity
+6. Eqdiasq
+7. Solidity
+8. Convex_Area
+9. Extent
+10. Aspect_Ratio
+11. Roundness
+12. Compactness
+
+Shape Features (4 Features)
+13. Shapefactor_1
+14. Shapefactor_2
+15. Shapefactor_3
+16. Shapefactor_4
+
+Color Features (12 Features)
+17. Mean_RR
+18. Mean_RG
+19. Mean_RB
+20. StdDev_RR
+21. StdDev_RG
+22. StdDev_RB
+213. Skew_RR
+24. Skew_RG
+25. Skew_RB
+26. Kurtosis_RR
+27. Kurtosis_RG
+28. Kurtosis_RB
+
+29. Class
+
+
+
+
+2. SINGH D, TASPINAR YS, KURSUN R, CINAR I, KOKLU M, OZKAN IA, LEE H-N., (2022). Classification and Analysis of Pistachio Species with Pre-Trained Deep Learning Models, Electronics, 11 (7), 981. https://doi.org/10.3390/electronics11070981. (Open Access) 
+
+ABSTRACT:  Pistachio is a shelled fruit from the anacardiaceae family. The homeland of pistachio is the Middle East. The Kirmizi pistachios and Siirt pistachios are the major types grown and exported in Turkey. Since the prices, tastes, and nutritional values of these types differs, the type of pistachio becomes important when it comes to trade. This study aims to identify these two types of pistachios, which are frequently grown in Turkey, by classifying them via convolutional neural networks. Within the scope of the study, images of Kirmizi and Siirt pistachio types were obtained through the computer vision system. The pre-trained dataset includes a total of 2148 images, 1232 of Kirmizi type and 916 of Siirt type. Three different convolutional neural network models were used to classify these images. Models were trained by using the transfer learning method, with AlexNet and the pre-trained models VGG16 and VGG19. The dataset is divided as 80% training and 20% test. As a result of the performed classifications, the success rates obtained from the AlexNet, VGG16, and VGG19 models are 94.42%, 98.84%, and 98.14%, respectively. Models’ performances were evaluated through sensitivity, specificity, precision, and F-1 score metrics. In addition, ROC curves and AUC values were used in the performance evaluation. The highest classification success was achieved with the VGG16 model. The obtained results reveal that these methods can be used successfully in the determination of pistachio types.
+
+Keywords: pistachio; genetic varieties; machine learning; deep learning; food recognition
+
+https://www.muratkoklu.com/datasets/
